@@ -1,4 +1,6 @@
+# ----------------------------------------
 # Logs
+# ----------------------------------------
 logs
 *.log
 npm-debug.log*
@@ -7,18 +9,61 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-node_modules
-dist
-dist-ssr
-*.local
+# ----------------------------------------
+# Dependencies
+# ----------------------------------------
+node_modules/
 
-# Editor directories and files
+# ----------------------------------------
+# Build output
+# ----------------------------------------
+dist/
+dist-ssr/
+build/
+out/
+
+# ----------------------------------------
+# Environment variables (private secrets)
+# ----------------------------------------
+.env
+.env.*
+!.env.example   # Allow the example file
+
+supabase/.env
+# ----------------------------------------
+# Local config
+# ----------------------------------------
+*.local
+*.cache
+.cache/
+tmp/
+temp/
+*.tmp
+
+# ----------------------------------------
+# OS files
+# ----------------------------------------
+.DS_Store
+Thumbs.db
+
+# ----------------------------------------
+# Editor files
+# ----------------------------------------
 .vscode/*
 !.vscode/extensions.json
-.idea
-.DS_Store
+.idea/
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
+
+# ----------------------------------------
+# Supabase local state 
+# ----------------------------------------
+supabase/.temp/
+supabase/.branches/
+supabase/.config/
+supabase/.snapshots/
+
+
