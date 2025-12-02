@@ -4,7 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Building2 } from 'lucide-react';
 
 interface Restaurant {
   id: string;
@@ -13,7 +13,7 @@ interface Restaurant {
 }
 
 export default function SelectRestaurant() {
-  const { user, isSuperAdmin, restaurantIds, loading: authLoading } = useAuth();
+  const { user, isSuperAdmin, loading: authLoading, refreshUserData } = useAuth();
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
@@ -31,18 +31,30 @@ export default function SelectRestaurant() {
 
   const loadRestaurants = async () => {
     try {
-      const { data, error } = await supabase
-        .from('restaurants')
-        .select('id, name, logo_url')
-        .in('id', restaurantIds);
+      // Get restaurants this user has access to
+      const { data: userRestaurants } = await supabase
+        .from('restaurant_users')
+        .select('restaurant_id')
+        .eq('user_id', user!.id);
 
-      if (error) throw error;
+      const restaurantIds = userRestaurants?.map(r => r.restaurant_id) || [];
 
-      setRestaurants(data || []);
+      if (restaurantIds.length > 0) {
+        const { data, error } = await supabase
+          .from('restaurants')
+          .select('id, name, logo_url')
+          .in('id', restaurantIds);
 
-      // Auto-redirect if user has exactly one restaurant
-      if (data && data.length === 1) {
-        navigate(`/dashboard/${data[0].id}`);
+        if (error) throw error;
+        setRestaurants(data || []);
+
+        // Auto-redirect if user has exactly one restaurant and is not super admin
+        if (data && data.length === 1 && !isSuperAdmin) {
+          navigate(`/dashboard/${data[0].id}`);
+          return;
+        }
+      } else {
+        setRestaurants([]);
       }
     } catch (error) {
       console.error('Error loading restaurants:', error);
@@ -70,8 +82,12 @@ export default function SelectRestaurant() {
           <CardContent>
             {restaurants.length === 0 ? (
               <div className="text-center py-8">
+                <Building2 className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
                 <p className="text-muted-foreground mb-4">
-                  You are not assigned to any restaurant yet.
+                  {isSuperAdmin 
+                    ? "You haven't been assigned to any restaurants yet. Use the Super Admin Panel to manage restaurants."
+                    : "You are not assigned to any restaurant yet. Please contact your administrator."
+                  }
                 </p>
                 {isSuperAdmin && (
                   <Button onClick={() => navigate('/super')}>
@@ -84,7 +100,7 @@ export default function SelectRestaurant() {
                 {restaurants.map((restaurant) => (
                   <Card
                     key={restaurant.id}
-                    className="cursor-pointer hover:shadow-lg transition-shadow"
+                    className="cursor-pointer hover:shadow-lg transition-shadow border-2 hover:border-primary"
                     onClick={() => navigate(`/dashboard/${restaurant.id}`)}
                   >
                     <CardContent className="p-6 flex flex-col items-center text-center">
@@ -108,8 +124,8 @@ export default function SelectRestaurant() {
               </div>
             )}
 
-            {isSuperAdmin && restaurants.length > 0 && (
-              <div className="mt-6 text-center">
+            {isSuperAdmin && (
+              <div className="mt-6 pt-6 border-t text-center">
                 <Button variant="outline" onClick={() => navigate('/super')}>
                   Open Super Admin Panel
                 </Button>
