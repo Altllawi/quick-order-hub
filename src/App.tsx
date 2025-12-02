@@ -17,6 +17,7 @@ import Admins from "./pages/dashboard/Admins";
 import Settings from "./pages/dashboard/Settings";
 import SuperDashboard from "./pages/super/SuperDashboard";
 import Restaurants from "./pages/super/Restaurants";
+import SuperAdmins from "./pages/super/SuperAdmins";
 import PWA from "./pages/pwa/PWA";
 import NotFound from "./pages/NotFound";
 
@@ -46,7 +47,7 @@ const App = () => (
 
             <Route path="/super" element={<ProtectedRoute requireSuperAdmin><SuperDashboard /></ProtectedRoute>}>
               <Route index element={<Restaurants />} />
-              <Route path="admins" element={<div className="text-2xl">Super Admins Management - Coming Soon</div>} />
+              <Route path="admins" element={<SuperAdmins />} />
             </Route>
 
             <Route path="/pwa/:restaurantId/:tableId" element={<PWA />} />
