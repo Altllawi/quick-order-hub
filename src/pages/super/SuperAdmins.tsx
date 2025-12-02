@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -7,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Plus, Trash2, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -14,44 +14,55 @@ interface Admin {
   id: string;
   user_id: string;
   restaurant_id: string;
-  created_at: string;
+  restaurant_name: string;
   email: string;
+  created_at: string;
 }
 
-export default function Admins() {
-  const { restaurantId } = useParams();
+interface Restaurant {
+  id: string;
+  name: string;
+}
+
+export default function SuperAdmins() {
   const [admins, setAdmins] = useState<Admin[]>([]);
+  const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [selectedRestaurant, setSelectedRestaurant] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    if (restaurantId) {
-      loadAdmins();
-    }
-  }, [restaurantId]);
+    loadData();
+  }, []);
 
-  const loadAdmins = async () => {
+  const loadData = async () => {
     setLoading(true);
     try {
+      // Load restaurants
+      const { data: restaurantData } = await supabase
+        .from('restaurants')
+        .select('id, name')
+        .order('name');
+      
+      setRestaurants(restaurantData || []);
+
+      // Load all admins via edge function
+      const { data: session } = await supabase.auth.getSession();
       const response = await supabase.functions.invoke('manage-admin', {
-        body: { action: 'list-admins', restaurant_id: restaurantId },
+        body: { action: 'list-all-admins' },
       });
 
       if (response.error) {
         throw new Error(response.error.message);
       }
 
-      if (response.data.error) {
-        throw new Error(response.data.error);
-      }
-
       setAdmins(response.data.admins || []);
     } catch (error: any) {
-      console.error('Error loading admins:', error);
-      toast.error('Failed to load admins');
+      console.error('Error loading data:', error);
+      toast.error('Failed to load data');
     } finally {
       setLoading(false);
     }
@@ -59,15 +70,19 @@ export default function Admins() {
 
   const handleAddAdmin = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSubmitting(true);
+    if (!selectedRestaurant) {
+      toast.error('Please select a restaurant');
+      return;
+    }
 
+    setSubmitting(true);
     try {
       const response = await supabase.functions.invoke('manage-admin', {
         body: {
           action: 'create-admin',
           email,
           password,
-          restaurant_id: restaurantId,
+          restaurant_id: selectedRestaurant,
         },
       });
 
@@ -82,8 +97,9 @@ export default function Admins() {
       toast.success('Admin added successfully');
       setEmail('');
       setPassword('');
+      setSelectedRestaurant('');
       setDialogOpen(false);
-      loadAdmins();
+      loadData();
     } catch (error: any) {
       console.error('Error adding admin:', error);
       toast.error(error.message || 'Failed to add admin');
@@ -93,14 +109,14 @@ export default function Admins() {
   };
 
   const handleRemoveAdmin = async (admin: Admin) => {
-    if (!confirm(`Remove ${admin.email} from this restaurant?`)) return;
+    if (!confirm(`Remove ${admin.email} from ${admin.restaurant_name}?`)) return;
 
     try {
       const response = await supabase.functions.invoke('manage-admin', {
         body: {
           action: 'remove-admin',
           user_id: admin.user_id,
-          restaurant_id: restaurantId,
+          restaurant_id: admin.restaurant_id,
         },
       });
 
@@ -109,7 +125,7 @@ export default function Admins() {
       }
 
       toast.success('Admin removed');
-      loadAdmins();
+      loadData();
     } catch (error: any) {
       console.error('Error removing admin:', error);
       toast.error('Failed to remove admin');
@@ -121,7 +137,7 @@ export default function Admins() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Restaurant Admins</h1>
-          <p className="text-muted-foreground">Manage who can access this restaurant</p>
+          <p className="text-muted-foreground">Manage admins across all restaurants</p>
         </div>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
@@ -132,9 +148,24 @@ export default function Admins() {
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Add New Admin</DialogTitle>
+              <DialogTitle>Add Restaurant Admin</DialogTitle>
             </DialogHeader>
             <form onSubmit={handleAddAdmin} className="space-y-4">
+              <div>
+                <Label htmlFor="restaurant">Restaurant</Label>
+                <Select value={selectedRestaurant} onValueChange={setSelectedRestaurant}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a restaurant" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {restaurants.map((r) => (
+                      <SelectItem key={r.id} value={r.id}>
+                        {r.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
               <div>
                 <Label htmlFor="admin-email">Email</Label>
                 <Input
@@ -171,13 +202,14 @@ export default function Admins() {
 
       <Card>
         <CardHeader>
-          <CardTitle>All Admins</CardTitle>
+          <CardTitle>All Restaurant Admins</CardTitle>
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Email</TableHead>
+                <TableHead>Restaurant</TableHead>
                 <TableHead>Added</TableHead>
                 <TableHead>Actions</TableHead>
               </TableRow>
@@ -185,13 +217,13 @@ export default function Admins() {
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={3} className="text-center">
+                  <TableCell colSpan={4} className="text-center">
                     <Loader2 className="h-4 w-4 animate-spin mx-auto" />
                   </TableCell>
                 </TableRow>
               ) : admins.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={3} className="text-center text-muted-foreground">
+                  <TableCell colSpan={4} className="text-center text-muted-foreground">
                     No admins yet
                   </TableCell>
                 </TableRow>
@@ -199,6 +231,7 @@ export default function Admins() {
                 admins.map((admin) => (
                   <TableRow key={admin.id}>
                     <TableCell className="font-medium">{admin.email}</TableCell>
+                    <TableCell>{admin.restaurant_name}</TableCell>
                     <TableCell>{new Date(admin.created_at).toLocaleDateString()}</TableCell>
                     <TableCell>
                       <Button
