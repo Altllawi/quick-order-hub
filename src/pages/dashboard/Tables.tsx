@@ -1,6 +1,3 @@
-import { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -8,114 +5,26 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Table as TableUI, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Plus, QrCode as QrCodeIcon, Trash2 } from 'lucide-react';
-import { toast } from 'sonner';
 import { QRCodeSVG } from 'qrcode.react';
-
-interface TableData {
-  id: string;
-  name: string;
-  table_uuid: string;
-}
+import { useTables } from '@/hooks/useTables';
 
 export default function Tables() {
-  const { restaurantId } = useParams();
-  const [tables, setTables] = useState<TableData[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [qrDialogOpen, setQrDialogOpen] = useState(false);
-  const [selectedTable, setSelectedTable] = useState<TableData | null>(null);
-  const [tableName, setTableName] = useState('');
-
-  useEffect(() => {
-    if (restaurantId) {
-      loadTables();
-    }
-  }, [restaurantId]);
-
-  const loadTables = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('tables')
-        .select('*')
-        .eq('restaurant_id', restaurantId)
-        .order('name');
-
-      if (error) throw error;
-      setTables(data || []);
-    } catch (error) {
-      console.error('Error loading tables:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      const { error } = await supabase
-        .from('tables')
-        .insert([
-          {
-            restaurant_id: restaurantId,
-            name: tableName,
-          },
-        ]);
-
-      if (error) throw error;
-      toast.success('Table created');
-      setTableName('');
-      setDialogOpen(false);
-      loadTables();
-    } catch (error) {
-      console.error('Error creating table:', error);
-      toast.error('Failed to create table');
-    }
-  };
-
-  const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this table?')) return;
-
-    try {
-      const { error } = await supabase.from('tables').delete().eq('id', id);
-
-      if (error) throw error;
-      toast.success('Table deleted');
-      loadTables();
-    } catch (error) {
-      console.error('Error deleting table:', error);
-      toast.error('Failed to delete table');
-    }
-  };
-
-  const showQRCode = (table: TableData) => {
-    setSelectedTable(table);
-    setQrDialogOpen(true);
-  };
-
-  const getQRUrl = (table: TableData) => {
-    return `${window.location.origin}/pwa/${restaurantId}/${table.id}`;
-  };
-
-  const downloadQR = () => {
-    if (!selectedTable) return;
-
-    const canvas = document.getElementById('qr-code') as HTMLCanvasElement;
-    if (!canvas) return;
-
-    const svg = canvas.querySelector('svg');
-    if (!svg) return;
-
-    const svgData = new XMLSerializer().serializeToString(svg);
-    const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
-    const svgUrl = URL.createObjectURL(svgBlob);
-    const downloadLink = document.createElement('a');
-    downloadLink.href = svgUrl;
-    downloadLink.download = `${selectedTable.name}-qr.svg`;
-    document.body.appendChild(downloadLink);
-    downloadLink.click();
-    document.body.removeChild(downloadLink);
-    URL.revokeObjectURL(svgUrl);
-  };
+  const {
+    tables,
+    loading,
+    dialogOpen,
+    qrDialogOpen,
+    selectedTable,
+    tableName,
+    setDialogOpen,
+    setQrDialogOpen,
+    setTableName,
+    handleSubmit,
+    handleDelete,
+    showQRCode,
+    getQRUrl,
+    downloadQR,
+  } = useTables();
 
   return (
     <div className="space-y-6">

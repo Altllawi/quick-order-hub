@@ -1,6 +1,3 @@
-import { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -9,296 +6,31 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { RefreshCw, Plus, Minus, ShoppingCart } from 'lucide-react';
-import { toast } from 'sonner';
-
-interface Order {
-  id: string;
-  status: string;
-  total_amount: number;
-  created_at: string;
-  tables: {
-    name: string;
-  };
-}
-
-interface MenuItem {
-  id: string;
-  name: string;
-  description: string | null;
-  price: number;
-  category_id: string | null;
-}
-
-interface Category {
-  id: string;
-  name: string;
-}
-
-interface CartItem {
-  menuItem: MenuItem;
-  quantity: number;
-  notes: string;
-}
-
-interface TableData {
-  id: string;
-  name: string;
-}
+import { useOrders, STATUS_OPTIONS } from '@/hooks/useOrders';
 
 export default function Orders() {
-  const { restaurantId } = useParams();
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [createDialogOpen, setCreateDialogOpen] = useState(false);
-  
-  // Create order state
-  const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [tables, setTables] = useState<TableData[]>([]);
-  const [cart, setCart] = useState<CartItem[]>([]);
-  const [selectedTableId, setSelectedTableId] = useState<string>('');
-  const [orderNotes, setOrderNotes] = useState('');
-  const [creatingOrder, setCreatingOrder] = useState(false);
-
-  useEffect(() => {
-    if (restaurantId) {
-      loadOrders();
-      subscribeToOrders();
-    }
-  }, [restaurantId]);
-
-  const loadOrders = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('orders')
-        .select(`
-          id,
-          status,
-          total_amount,
-          created_at,
-          tables (
-            name
-          )
-        `)
-        .eq('restaurant_id', restaurantId)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      setOrders(data || []);
-    } catch (error) {
-      console.error('Error loading orders:', error);
-      toast.error('Failed to load orders');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const subscribeToOrders = () => {
-    const channel = supabase
-      .channel('orders')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'orders',
-          filter: `restaurant_id=eq.${restaurantId}`,
-        },
-        () => {
-          loadOrders();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  };
-
-  const loadMenuAndTables = async () => {
-    try {
-      const [menuResult, categoriesResult, tablesResult] = await Promise.all([
-        supabase
-          .from('menu_items')
-          .select('*')
-          .eq('restaurant_id', restaurantId)
-          .eq('is_available', true)
-          .order('position'),
-        supabase
-          .from('menu_categories')
-          .select('*')
-          .eq('restaurant_id', restaurantId)
-          .order('position'),
-        supabase
-          .from('tables')
-          .select('id, name')
-          .eq('restaurant_id', restaurantId)
-          .order('name'),
-      ]);
-
-      if (menuResult.error) throw menuResult.error;
-      if (categoriesResult.error) throw categoriesResult.error;
-      if (tablesResult.error) throw tablesResult.error;
-
-      setMenuItems(menuResult.data || []);
-      setCategories(categoriesResult.data || []);
-      setTables(tablesResult.data || []);
-    } catch (error) {
-      console.error('Error loading menu and tables:', error);
-      toast.error('Failed to load menu data');
-    }
-  };
-
-  const handleOpenCreateDialog = () => {
-    loadMenuAndTables();
-    setCart([]);
-    setSelectedTableId('');
-    setOrderNotes('');
-    setCreateDialogOpen(true);
-  };
-
-  const updateOrderStatus = async (orderId: string, newStatus: string) => {
-    try {
-      const { error } = await supabase
-        .from('orders')
-        .update({ status: newStatus })
-        .eq('id', orderId);
-
-      if (error) throw error;
-      toast.success('Order status updated');
-      loadOrders();
-    } catch (error) {
-      console.error('Error updating order:', error);
-      toast.error('Failed to update order');
-    }
-  };
-
-  const addToCart = (item: MenuItem) => {
-    setCart(prev => {
-      const existing = prev.find(c => c.menuItem.id === item.id);
-      if (existing) {
-        return prev.map(c =>
-          c.menuItem.id === item.id
-            ? { ...c, quantity: c.quantity + 1 }
-            : c
-        );
-      }
-      return [...prev, { menuItem: item, quantity: 1, notes: '' }];
-    });
-  };
-
-  const updateCartQuantity = (itemId: string, delta: number) => {
-    setCart(prev => {
-      return prev
-        .map(c => {
-          if (c.menuItem.id === itemId) {
-            const newQty = c.quantity + delta;
-            return newQty > 0 ? { ...c, quantity: newQty } : null;
-          }
-          return c;
-        })
-        .filter(Boolean) as CartItem[];
-    });
-  };
-
-  const updateCartNotes = (itemId: string, notes: string) => {
-    setCart(prev =>
-      prev.map(c =>
-        c.menuItem.id === itemId ? { ...c, notes } : c
-      )
-    );
-  };
-
-  const getCartTotal = () => {
-    return cart.reduce((sum, item) => sum + item.menuItem.price * item.quantity, 0);
-  };
-
-  const handleCreateOrder = async () => {
-    if (cart.length === 0) {
-      toast.error('Please add items to the order');
-      return;
-    }
-
-    if (!selectedTableId) {
-      toast.error('Please select a table');
-      return;
-    }
-
-    setCreatingOrder(true);
-    try {
-      const total = getCartTotal();
-
-      // Create order
-      const { data: order, error: orderError } = await supabase
-        .from('orders')
-        .insert({
-          restaurant_id: restaurantId,
-          table_id: selectedTableId,
-          total_amount: total,
-          status: 'pending',
-        })
-        .select()
-        .single();
-
-      if (orderError) throw orderError;
-
-      // Create order items
-      const orderItems = cart.map(item => ({
-        order_id: order.id,
-        menu_item_id: item.menuItem.id,
-        name_at_order: item.menuItem.name,
-        price_at_order: item.menuItem.price,
-        quantity: item.quantity,
-        notes: item.notes || null,
-      }));
-
-      const { error: itemsError } = await supabase
-        .from('order_items')
-        .insert(orderItems);
-
-      if (itemsError) throw itemsError;
-
-      toast.success('Order created successfully');
-      setCreateDialogOpen(false);
-      setCart([]);
-      setSelectedTableId('');
-      setOrderNotes('');
-      loadOrders();
-    } catch (error) {
-      console.error('Error creating order:', error);
-      toast.error('Failed to create order');
-    } finally {
-      setCreatingOrder(false);
-    }
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'pending':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'accepted':
-        return 'bg-blue-100 text-blue-800';
-      case 'preparing':
-        return 'bg-purple-100 text-purple-800';
-      case 'ready':
-        return 'bg-green-100 text-green-800';
-      case 'served':
-        return 'bg-gray-100 text-gray-800';
-      case 'cancelled':
-        return 'bg-red-100 text-red-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
-  };
-
-  const statusOptions = ['pending', 'accepted', 'preparing', 'ready', 'served', 'cancelled'];
-
-  // Group menu items by category
-  const groupedItems = categories.map(cat => ({
-    category: cat,
-    items: menuItems.filter(item => item.category_id === cat.id),
-  }));
-  const uncategorizedItems = menuItems.filter(item => !item.category_id);
+  const {
+    orders,
+    loading,
+    createDialogOpen,
+    tables,
+    cart,
+    selectedTableId,
+    creatingOrder,
+    groupedItems,
+    uncategorizedItems,
+    setCreateDialogOpen,
+    setSelectedTableId,
+    loadOrders,
+    handleOpenCreateDialog,
+    updateOrderStatus,
+    addToCart,
+    updateCartQuantity,
+    updateCartNotes,
+    getCartTotal,
+    handleCreateOrder,
+    getStatusColor,
+  } = useOrders();
 
   return (
     <div className="space-y-6">
@@ -516,7 +248,7 @@ export default function Orders() {
                         onChange={(e) => updateOrderStatus(order.id, e.target.value)}
                         className="px-2 py-1 border rounded text-sm"
                       >
-                        {statusOptions.map((status) => (
+                        {STATUS_OPTIONS.map((status) => (
                           <option key={status} value={status}>
                             {status}
                           </option>

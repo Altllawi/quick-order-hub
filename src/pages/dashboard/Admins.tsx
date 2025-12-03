@@ -1,6 +1,3 @@
-import { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -8,113 +5,22 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Plus, Trash2, Loader2 } from 'lucide-react';
-import { toast } from 'sonner';
-
-interface Admin {
-  id: string;
-  user_id: string;
-  restaurant_id: string;
-  created_at: string;
-  email: string;
-}
+import { useAdmins } from '@/hooks/useAdmins';
 
 export default function Admins() {
-  const { restaurantId } = useParams();
-  const [admins, setAdmins] = useState<Admin[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [submitting, setSubmitting] = useState(false);
-
-  useEffect(() => {
-    if (restaurantId) {
-      loadAdmins();
-    }
-  }, [restaurantId]);
-
-  const loadAdmins = async () => {
-    setLoading(true);
-    try {
-      const response = await supabase.functions.invoke('manage-admin', {
-        body: { action: 'list-admins', restaurant_id: restaurantId },
-      });
-
-      if (response.error) {
-        throw new Error(response.error.message);
-      }
-
-      if (response.data.error) {
-        throw new Error(response.data.error);
-      }
-
-      setAdmins(response.data.admins || []);
-    } catch (error: any) {
-      console.error('Error loading admins:', error);
-      toast.error('Failed to load admins');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleAddAdmin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSubmitting(true);
-
-    try {
-      const response = await supabase.functions.invoke('manage-admin', {
-        body: {
-          action: 'create-admin',
-          email,
-          password,
-          restaurant_id: restaurantId,
-        },
-      });
-
-      if (response.error) {
-        throw new Error(response.error.message);
-      }
-
-      if (response.data.error) {
-        throw new Error(response.data.error);
-      }
-
-      toast.success('Admin added successfully');
-      setEmail('');
-      setPassword('');
-      setDialogOpen(false);
-      loadAdmins();
-    } catch (error: any) {
-      console.error('Error adding admin:', error);
-      toast.error(error.message || 'Failed to add admin');
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const handleRemoveAdmin = async (admin: Admin) => {
-    if (!confirm(`Remove ${admin.email} from this restaurant?`)) return;
-
-    try {
-      const response = await supabase.functions.invoke('manage-admin', {
-        body: {
-          action: 'remove-admin',
-          user_id: admin.user_id,
-          restaurant_id: restaurantId,
-        },
-      });
-
-      if (response.error) {
-        throw new Error(response.error.message);
-      }
-
-      toast.success('Admin removed');
-      loadAdmins();
-    } catch (error: any) {
-      console.error('Error removing admin:', error);
-      toast.error('Failed to remove admin');
-    }
-  };
+  const {
+    admins,
+    loading,
+    dialogOpen,
+    email,
+    password,
+    submitting,
+    setDialogOpen,
+    setEmail,
+    setPassword,
+    handleAddAdmin,
+    handleRemoveAdmin,
+  } = useAdmins();
 
   return (
     <div className="space-y-6">
