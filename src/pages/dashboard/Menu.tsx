@@ -25,6 +25,13 @@ interface Category {
   name: string;
 }
 
+const emptyFormData = {
+  name: '',
+  description: '',
+  price: '',
+  category_id: '',
+};
+
 export default function Menu() {
   const { restaurantId } = useParams();
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
@@ -34,13 +41,7 @@ export default function Menu() {
   const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
   
-  const [formData, setFormData] = useState({
-    name: '',
-    description: '',
-    price: '',
-    category_id: '',
-  });
-
+  const [formData, setFormData] = useState(emptyFormData);
   const [categoryName, setCategoryName] = useState('');
 
   useEffect(() => {
@@ -49,6 +50,16 @@ export default function Menu() {
       loadMenuItems();
     }
   }, [restaurantId]);
+
+  // Reset form when dialog closes
+  const handleDialogChange = (open: boolean) => {
+    setDialogOpen(open);
+    if (!open) {
+      // Clear editing state and reset form when dialog closes
+      setEditingItem(null);
+      setFormData(emptyFormData);
+    }
+  };
 
   const loadCategories = async () => {
     try {
@@ -140,7 +151,7 @@ export default function Menu() {
         toast.success('Menu item created');
       }
 
-      setFormData({ name: '', description: '', price: '', category_id: '' });
+      setFormData(emptyFormData);
       setEditingItem(null);
       setDialogOpen(false);
       loadMenuItems();
@@ -158,6 +169,13 @@ export default function Menu() {
       price: item.price.toString(),
       category_id: item.category_id || '',
     });
+    setDialogOpen(true);
+  };
+
+  const handleAddNew = () => {
+    // Ensure form is reset when clicking Add Item
+    setEditingItem(null);
+    setFormData(emptyFormData);
     setDialogOpen(true);
   };
 
@@ -224,9 +242,9 @@ export default function Menu() {
             </DialogContent>
           </Dialog>
 
-          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+          <Dialog open={dialogOpen} onOpenChange={handleDialogChange}>
             <DialogTrigger asChild>
-              <Button>
+              <Button onClick={handleAddNew}>
                 <Plus className="h-4 w-4 mr-2" />
                 Add Item
               </Button>
