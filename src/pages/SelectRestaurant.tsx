@@ -1,69 +1,18 @@
-import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Loader2, Building2 } from 'lucide-react';
-
-interface Restaurant {
-  id: string;
-  name: string;
-  logo_url: string | null;
-}
+import { useSelectRestaurant } from '@/hooks/useSelectRestaurant';
 
 export default function SelectRestaurant() {
-  const { user, isSuperAdmin, loading: authLoading, refreshUserData } = useAuth();
-  const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
-  const [loading, setLoading] = useState(true);
-  const navigate = useNavigate();
+  const {
+    restaurants,
+    loading,
+    isSuperAdmin,
+    selectRestaurant,
+    goToSuperAdmin,
+  } = useSelectRestaurant();
 
-  useEffect(() => {
-    if (!authLoading && !user) {
-      navigate('/login');
-      return;
-    }
-
-    if (!authLoading && user) {
-      loadRestaurants();
-    }
-  }, [user, authLoading, navigate]);
-
-  const loadRestaurants = async () => {
-    try {
-      // Get restaurants this user has access to
-      const { data: userRestaurants } = await supabase
-        .from('restaurant_users')
-        .select('restaurant_id')
-        .eq('user_id', user!.id);
-
-      const restaurantIds = userRestaurants?.map(r => r.restaurant_id) || [];
-
-      if (restaurantIds.length > 0) {
-        const { data, error } = await supabase
-          .from('restaurants')
-          .select('id, name, logo_url')
-          .in('id', restaurantIds);
-
-        if (error) throw error;
-        setRestaurants(data || []);
-
-        // Auto-redirect if user has exactly one restaurant and is not super admin
-        if (data && data.length === 1 && !isSuperAdmin) {
-          navigate(`/dashboard/${data[0].id}`);
-          return;
-        }
-      } else {
-        setRestaurants([]);
-      }
-    } catch (error) {
-      console.error('Error loading restaurants:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  if (authLoading || loading) {
+  if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -90,7 +39,7 @@ export default function SelectRestaurant() {
                   }
                 </p>
                 {isSuperAdmin && (
-                  <Button onClick={() => navigate('/super')}>
+                  <Button onClick={goToSuperAdmin}>
                     Go to Super Admin Panel
                   </Button>
                 )}
@@ -101,7 +50,7 @@ export default function SelectRestaurant() {
                   <Card
                     key={restaurant.id}
                     className="cursor-pointer hover:shadow-lg transition-shadow border-2 hover:border-primary"
-                    onClick={() => navigate(`/dashboard/${restaurant.id}`)}
+                    onClick={() => selectRestaurant(restaurant.id)}
                   >
                     <CardContent className="p-6 flex flex-col items-center text-center">
                       {restaurant.logo_url ? (
@@ -126,7 +75,7 @@ export default function SelectRestaurant() {
 
             {isSuperAdmin && (
               <div className="mt-6 pt-6 border-t text-center">
-                <Button variant="outline" onClick={() => navigate('/super')}>
+                <Button variant="outline" onClick={goToSuperAdmin}>
                   Open Super Admin Panel
                 </Button>
               </div>
