@@ -1,7 +1,6 @@
 export interface RestaurantTheme {
   primary_color: string;
   secondary_color: string;
-  background_color: string;
   accent_color: string;
 }
 
@@ -54,9 +53,6 @@ export const applyRestaurantTheme = (theme: RestaurantTheme) => {
   if (theme.secondary_color) {
     root.style.setProperty('--restaurant-secondary', hexToHSL(theme.secondary_color));
   }
-  if (theme.background_color) {
-    root.style.setProperty('--restaurant-background', hexToHSL(theme.background_color));
-  }
   if (theme.accent_color) {
     root.style.setProperty('--restaurant-accent', hexToHSL(theme.accent_color));
   }
@@ -66,6 +62,22 @@ export const resetRestaurantTheme = () => {
   const root = document.documentElement;
   root.style.removeProperty('--restaurant-primary');
   root.style.removeProperty('--restaurant-secondary');
-  root.style.removeProperty('--restaurant-background');
   root.style.removeProperty('--restaurant-accent');
+};
+
+// Set favicon dynamically
+export const setFavicon = (logoUrl: string | null) => {
+  const link: HTMLLinkElement = document.querySelector("link[rel~='icon']") || document.createElement('link');
+  link.rel = 'icon';
+  link.type = 'image/x-icon';
+  link.href = logoUrl || '/favicon.ico';
+  document.head.appendChild(link);
+};
+
+// Reset favicon to default
+export const resetFavicon = () => {
+  const link: HTMLLinkElement | null = document.querySelector("link[rel~='icon']");
+  if (link) {
+    link.href = '/favicon.ico';
+  }
 };

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Outlet, useParams, Link, useLocation, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { applyRestaurantTheme, RestaurantTheme } from '@/services/themeService';
+import { applyRestaurantTheme, RestaurantTheme, setFavicon, resetFavicon } from '@/services/themeService';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import {
@@ -22,7 +22,6 @@ interface Restaurant {
   logo_url: string | null;
   primary_color: string;
   secondary_color: string;
-  background_color: string;
   accent_color: string;
 }
 
@@ -38,6 +37,10 @@ export default function RestaurantDashboard() {
     if (restaurantId) {
       loadRestaurant();
     }
+
+    return () => {
+      resetFavicon();
+    };
   }, [restaurantId]);
 
   const loadRestaurant = async () => {
@@ -52,14 +55,14 @@ export default function RestaurantDashboard() {
 
       setRestaurant(data);
 
-      // Apply theme
+      // Apply theme and favicon
       if (data) {
         applyRestaurantTheme({
           primary_color: data.primary_color,
           secondary_color: data.secondary_color,
-          background_color: data.background_color,
           accent_color: data.accent_color,
         });
+        setFavicon(data.logo_url);
       }
     } catch (error) {
       console.error('Error loading restaurant:', error);
