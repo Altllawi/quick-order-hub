@@ -7,18 +7,19 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import { applyRestaurantTheme } from '@/services/themeService';
-import { Upload } from 'lucide-react';
+import { Upload, RotateCcw } from 'lucide-react';
 
 interface Restaurant {
   id: string;
   name: string;
   primary_color: string;
   secondary_color: string;
-  background_color: string;
   accent_color: string;
   logo_url: string | null;
-  banner_url: string | null;
+  background_url: string | null;
 }
+
+const DEFAULT_BACKGROUND = '/default-background.jpg';
 
 export default function Theme() {
   const { restaurantId } = useParams();
@@ -30,7 +31,6 @@ export default function Theme() {
   const [colors, setColors] = useState({
     primary_color: '#3b82f6',
     secondary_color: '#8b5cf6',
-    background_color: '#ffffff',
     accent_color: '#10b981',
   });
   
@@ -41,7 +41,6 @@ export default function Theme() {
       setColors({
         primary_color: restaurant.primary_color,
         secondary_color: restaurant.secondary_color,
-        background_color: restaurant.background_color,
         accent_color: restaurant.accent_color,
       });
     }
@@ -106,7 +105,7 @@ export default function Theme() {
     }
   };
 
-  const handleBannerUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleBackgroundUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -118,7 +117,7 @@ export default function Theme() {
     setUploading(true);
     try {
       const fileExt = file.name.split('.').pop();
-      const filePath = `${restaurantId}/banner.${fileExt}`;
+      const filePath = `${restaurantId}/background.${fileExt}`;
 
       const { error: uploadError } = await supabase.storage
         .from('restaurants')
@@ -132,20 +131,39 @@ export default function Theme() {
 
       const { error: updateError } = await supabase
         .from('restaurants')
-        .update({ banner_url: publicUrl })
+        .update({ background_url: publicUrl })
         .eq('id', restaurantId);
 
       if (updateError) throw updateError;
 
-      toast.success('Banner uploaded successfully');
+      toast.success('Background image uploaded successfully');
       refreshRestaurant();
     } catch (error) {
-      console.error('Error uploading banner:', error);
-      toast.error('Failed to upload banner');
+      console.error('Error uploading background:', error);
+      toast.error('Failed to upload background image');
     } finally {
       setUploading(false);
     }
   };
+
+  const handleResetBackground = async () => {
+    try {
+      const { error } = await supabase
+        .from('restaurants')
+        .update({ background_url: null })
+        .eq('id', restaurantId);
+
+      if (error) throw error;
+
+      toast.success('Background reset to default');
+      refreshRestaurant();
+    } catch (error) {
+      console.error('Error resetting background:', error);
+      toast.error('Failed to reset background');
+    }
+  };
+
+  const currentBackground = restaurant?.background_url || DEFAULT_BACKGROUND;
 
   return (
     <div className="space-y-6">
@@ -157,11 +175,12 @@ export default function Theme() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card>
           <CardHeader>
-            <CardTitle>Logo & Images</CardTitle>
+            <CardTitle>Logo & Background</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-6">
             <div>
               <Label>Restaurant Logo</Label>
+              <p className="text-sm text-muted-foreground mb-2">This will also be used as the favicon in browser tabs</p>
               {restaurant?.logo_url && (
                 <div className="mt-2 mb-3">
                   <img
@@ -186,27 +205,37 @@ export default function Theme() {
             </div>
 
             <div>
-              <Label>Banner Image (Optional)</Label>
-              {restaurant?.banner_url && (
-                <div className="mt-2 mb-3">
-                  <img
-                    src={restaurant.banner_url}
-                    alt="Banner preview"
-                    className="h-20 w-full object-cover rounded"
-                  />
-                </div>
-              )}
+              <Label>Menu Background Image</Label>
+              <p className="text-sm text-muted-foreground mb-2">This image will be displayed as the PWA menu background</p>
+              <div className="mt-2 mb-3">
+                <img
+                  src={currentBackground}
+                  alt="Background preview"
+                  className="h-32 w-full object-cover rounded-lg"
+                />
+              </div>
               <div className="flex items-center gap-2">
                 <Input
                   type="file"
                   accept="image/*"
-                  onChange={handleBannerUpload}
+                  onChange={handleBackgroundUpload}
                   disabled={uploading}
                   className="max-w-xs"
                 />
                 <Button disabled={uploading} size="icon" variant="outline">
                   <Upload className="h-4 w-4" />
                 </Button>
+                {restaurant?.background_url && (
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={handleResetBackground}
+                    disabled={uploading}
+                  >
+                    <RotateCcw className="h-4 w-4 mr-2" />
+                    Reset to Default
+                  </Button>
+                )}
               </div>
             </div>
           </CardContent>
@@ -250,25 +279,6 @@ export default function Theme() {
                   type="text"
                   value={colors.secondary_color}
                   onChange={(e) => setColors({ ...colors, secondary_color: e.target.value })}
-                  className="flex-1"
-                />
-              </div>
-            </div>
-
-            <div>
-              <Label htmlFor="background">Background Color</Label>
-              <div className="flex gap-2 mt-1">
-                <Input
-                  id="background"
-                  type="color"
-                  value={colors.background_color}
-                  onChange={(e) => setColors({ ...colors, background_color: e.target.value })}
-                  className="w-20 h-10"
-                />
-                <Input
-                  type="text"
-                  value={colors.background_color}
-                  onChange={(e) => setColors({ ...colors, background_color: e.target.value })}
                   className="flex-1"
                 />
               </div>

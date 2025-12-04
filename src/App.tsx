@@ -50,7 +50,10 @@ const App = () => (
               <Route path="admins" element={<SuperAdmins />} />
             </Route>
 
+            {/* PWA Routes - with and without tableId */}
             <Route path="/pwa/:restaurantId/:tableId" element={<PWA />} />
+            <Route path="/pwa/:restaurantId" element={<PWA />} />
+            
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

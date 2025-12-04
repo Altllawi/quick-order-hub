@@ -2,16 +2,15 @@ import { useEffect, useState, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { applyRestaurantTheme, resetRestaurantTheme } from '@/services/themeService';
+import { applyRestaurantTheme, resetRestaurantTheme, setFavicon, resetFavicon } from '@/services/themeService';
 
 export interface Restaurant {
   id: string;
   name: string;
   logo_url: string | null;
-  banner_url: string | null;
+  background_url: string | null;
   primary_color: string | null;
   secondary_color: string | null;
-  background_color: string | null;
   accent_color: string | null;
 }
 
@@ -60,6 +59,7 @@ export interface OrderItem {
 }
 
 const CART_KEY_PREFIX = 'pwa_cart_';
+const DEFAULT_BACKGROUND = '/default-background.jpg';
 
 export function usePWA() {
   const { restaurantId, tableId } = useParams();
@@ -74,9 +74,10 @@ export function usePWA() {
   const [showCart, setShowCart] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
-  const canOrder = Boolean(restaurantId && tableId);
+  const canOrder = Boolean(restaurantId && tableId && table);
   const cartKey = `${CART_KEY_PREFIX}${restaurantId}_${tableId}`;
   const isOrderLocked = activeOrder && activeOrder.status !== 'pending';
+  const backgroundUrl = restaurant?.background_url || DEFAULT_BACKGROUND;
 
   // Load cart from localStorage
   const loadCart = useCallback(() => {
@@ -160,21 +161,21 @@ export function usePWA() {
 
       if (restError) throw restError;
       if (!rest) {
-        toast.error('Restaurant not found');
         setLoading(false);
         return;
       }
 
       setRestaurant(rest);
 
-      if (rest.primary_color || rest.secondary_color || rest.background_color || rest.accent_color) {
+      // Apply theme and favicon
+      if (rest.primary_color || rest.secondary_color || rest.accent_color) {
         applyRestaurantTheme({
           primary_color: rest.primary_color || '#3b82f6',
           secondary_color: rest.secondary_color || '#8b5cf6',
-          background_color: rest.background_color || '#ffffff',
           accent_color: rest.accent_color || '#10b981',
         });
       }
+      setFavicon(rest.logo_url);
 
       if (tableId) {
         const { data: tbl, error: tblError } = await supabase
@@ -225,6 +226,7 @@ export function usePWA() {
 
     return () => {
       resetRestaurantTheme();
+      resetFavicon();
     };
   }, [restaurantId, tableId]);
 
@@ -417,6 +419,7 @@ export function usePWA() {
     isOrderLocked,
     groupedItems,
     uncategorizedItems,
+    backgroundUrl,
     
     // Actions
     setShowCart,

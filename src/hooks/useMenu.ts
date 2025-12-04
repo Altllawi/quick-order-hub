@@ -23,6 +23,7 @@ export interface MenuFormData {
   description: string;
   price: string;
   category_id: string;
+  image_url: string;
 }
 
 const emptyFormData: MenuFormData = {
@@ -30,6 +31,7 @@ const emptyFormData: MenuFormData = {
   description: '',
   price: '',
   category_id: '',
+  image_url: '',
 };
 
 export function useMenu() {
@@ -42,6 +44,7 @@ export function useMenu() {
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
   const [formData, setFormData] = useState<MenuFormData>(emptyFormData);
   const [categoryName, setCategoryName] = useState('');
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   const loadCategories = useCallback(async () => {
     try {
@@ -114,6 +117,38 @@ export function useMenu() {
     }
   }, [restaurantId, categoryName, categories.length, loadCategories]);
 
+  const handleImageUpload = useCallback(async (file: File, itemId?: string): Promise<string | null> => {
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please upload an image file');
+      return null;
+    }
+
+    setUploadingImage(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = itemId || `temp_${Date.now()}`;
+      const filePath = `menu_items/${restaurantId}/${fileName}.${fileExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('restaurants')
+        .upload(filePath, file, { upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('restaurants')
+        .getPublicUrl(filePath);
+
+      return publicUrl;
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      toast.error('Failed to upload image');
+      return null;
+    } finally {
+      setUploadingImage(false);
+    }
+  }, [restaurantId]);
+
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     try {
@@ -125,6 +160,7 @@ export function useMenu() {
             description: formData.description,
             price: parseFloat(formData.price),
             category_id: formData.category_id || null,
+            image_url: formData.image_url || null,
           })
           .eq('id', editingItem.id);
 
@@ -140,6 +176,7 @@ export function useMenu() {
               description: formData.description,
               price: parseFloat(formData.price),
               category_id: formData.category_id || null,
+              image_url: formData.image_url || null,
               position: menuItems.length,
             },
           ]);
@@ -165,6 +202,7 @@ export function useMenu() {
       description: item.description || '',
       price: item.price.toString(),
       category_id: item.category_id || '',
+      image_url: item.image_url || '',
     });
     setDialogOpen(true);
   }, []);
@@ -218,6 +256,7 @@ export function useMenu() {
     editingItem,
     formData,
     categoryName,
+    uploadingImage,
     
     // Actions
     setDialogOpen: handleDialogChange,
@@ -230,5 +269,6 @@ export function useMenu() {
     handleAddNew,
     handleDelete,
     toggleAvailability,
+    handleImageUpload,
   };
 }

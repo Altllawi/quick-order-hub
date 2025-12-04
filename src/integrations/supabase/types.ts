@@ -244,6 +244,7 @@ export type Database = {
         Row: {
           accent_color: string | null
           background_color: string | null
+          background_url: string | null
           banner_url: string | null
           created_at: string | null
           id: string
@@ -257,6 +258,7 @@ export type Database = {
         Insert: {
           accent_color?: string | null
           background_color?: string | null
+          background_url?: string | null
           banner_url?: string | null
           created_at?: string | null
           id?: string
@@ -270,6 +272,7 @@ export type Database = {
         Update: {
           accent_color?: string | null
           background_color?: string | null
+          background_url?: string | null
           banner_url?: string | null
           created_at?: string | null
           id?: string

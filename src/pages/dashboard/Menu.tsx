@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Plus, Edit, Trash2 } from 'lucide-react';
+import { Plus, Edit, Trash2, Upload, ImageOff } from 'lucide-react';
 import { useMenu } from '@/hooks/useMenu';
 
 export default function Menu() {
@@ -17,6 +17,7 @@ export default function Menu() {
     editingItem,
     formData,
     categoryName,
+    uploadingImage,
     setDialogOpen,
     setCategoryDialogOpen,
     setCategoryName,
@@ -27,7 +28,18 @@ export default function Menu() {
     handleAddNew,
     handleDelete,
     toggleAvailability,
+    handleImageUpload,
   } = useMenu();
+
+  const onImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    const url = await handleImageUpload(file, editingItem?.id);
+    if (url) {
+      updateFormData({ image_url: url });
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -70,7 +82,7 @@ export default function Menu() {
                 Add Item
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="max-w-md">
               <DialogHeader>
                 <DialogTitle>{editingItem ? 'Edit' : 'Add'} Menu Item</DialogTitle>
               </DialogHeader>
@@ -109,7 +121,7 @@ export default function Menu() {
                     id="category"
                     value={formData.category_id}
                     onChange={(e) => updateFormData({ category_id: e.target.value })}
-                    className="w-full px-3 py-2 border rounded-md"
+                    className="w-full px-3 py-2 border rounded-md bg-background"
                   >
                     <option value="">No Category</option>
                     {categories.map((cat) => (
@@ -119,7 +131,31 @@ export default function Menu() {
                     ))}
                   </select>
                 </div>
-                <Button type="submit">{editingItem ? 'Update' : 'Create'} Item</Button>
+                <div>
+                  <Label>Item Image (Optional)</Label>
+                  {formData.image_url && (
+                    <div className="mt-2 mb-3">
+                      <img
+                        src={formData.image_url}
+                        alt="Item preview"
+                        className="h-24 w-24 object-cover rounded-lg"
+                      />
+                    </div>
+                  )}
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="file"
+                      accept="image/*"
+                      onChange={onImageChange}
+                      disabled={uploadingImage}
+                      className="max-w-xs"
+                    />
+                    {uploadingImage && <span className="text-sm text-muted-foreground">Uploading...</span>}
+                  </div>
+                </div>
+                <Button type="submit" disabled={uploadingImage}>
+                  {editingItem ? 'Update' : 'Create'} Item
+                </Button>
               </form>
             </DialogContent>
           </Dialog>
@@ -134,7 +170,20 @@ export default function Menu() {
         ) : (
           menuItems.map((item) => (
             <Card key={item.id} className={!item.is_available ? 'opacity-60' : ''}>
-              <CardHeader>
+              {item.image_url ? (
+                <div className="w-full h-40 overflow-hidden rounded-t-lg">
+                  <img 
+                    src={item.image_url} 
+                    alt={item.name}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              ) : (
+                <div className="w-full h-40 bg-muted flex items-center justify-center rounded-t-lg">
+                  <ImageOff className="h-12 w-12 text-muted-foreground" />
+                </div>
+              )}
+              <CardHeader className="pb-2">
                 <div className="flex items-start justify-between">
                   <div>
                     <CardTitle className="text-lg">{item.name}</CardTitle>
@@ -152,7 +201,7 @@ export default function Menu() {
               </CardHeader>
               <CardContent>
                 {item.description && (
-                  <p className="text-sm text-muted-foreground mb-3">{item.description}</p>
+                  <p className="text-sm text-muted-foreground mb-3 line-clamp-2">{item.description}</p>
                 )}
                 <Button
                   variant={item.is_available ? 'outline' : 'default'}
