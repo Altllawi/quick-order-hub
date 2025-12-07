@@ -285,6 +285,89 @@ export type Database = {
         }
         Relationships: []
       }
+      staff: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          phone: string | null
+          restaurant_id: string
+          role: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          phone?: string | null
+          restaurant_id: string
+          role?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          phone?: string | null
+          restaurant_id?: string
+          role?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      staff_hours: {
+        Row: {
+          created_at: string
+          date: string
+          end_time: string
+          id: string
+          restaurant_id: string
+          staff_id: string
+          start_time: string
+          total_hours: number | null
+        }
+        Insert: {
+          created_at?: string
+          date: string
+          end_time: string
+          id?: string
+          restaurant_id: string
+          staff_id: string
+          start_time: string
+          total_hours?: number | null
+        }
+        Update: {
+          created_at?: string
+          date?: string
+          end_time?: string
+          id?: string
+          restaurant_id?: string
+          staff_id?: string
+          start_time?: string
+          total_hours?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_hours_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_hours_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tables: {
         Row: {
           created_at: string | null
