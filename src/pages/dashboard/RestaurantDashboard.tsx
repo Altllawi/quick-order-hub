@@ -14,6 +14,8 @@ import {
   Palette,
   LogOut,
   ChevronLeft,
+  UserCog,
+  Clock,
 } from 'lucide-react';
 
 interface Restaurant {
@@ -79,6 +81,8 @@ export default function RestaurantDashboard() {
     { path: 'orders', label: 'Orders', icon: ShoppingBag },
     { path: 'menu', label: 'Menu', icon: MenuIcon },
     { path: 'tables', label: 'Tables & QR', icon: QrCode },
+    { path: 'staff', label: 'Staff Directory', icon: UserCog },
+    { path: 'staff-hours', label: 'Working Hours', icon: Clock },
     { path: 'theme', label: 'Theme', icon: Palette },
     { path: 'admins', label: 'Admins', icon: Users },
     { path: 'settings', label: 'Settings', icon: Settings },

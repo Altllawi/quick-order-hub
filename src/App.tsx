@@ -15,6 +15,8 @@ import Tables from "./pages/dashboard/Tables";
 import Theme from "./pages/dashboard/Theme";
 import Admins from "./pages/dashboard/Admins";
 import Settings from "./pages/dashboard/Settings";
+import StaffDirectory from "./pages/dashboard/StaffDirectory";
+import StaffHours from "./pages/dashboard/StaffHours";
 import SuperDashboard from "./pages/super/SuperDashboard";
 import Restaurants from "./pages/super/Restaurants";
 import SuperAdmins from "./pages/super/SuperAdmins";
@@ -40,6 +42,8 @@ const App = () => (
               <Route path="orders" element={<Orders />} />
               <Route path="menu" element={<Menu />} />
               <Route path="tables" element={<Tables />} />
+              <Route path="staff" element={<StaffDirectory />} />
+              <Route path="staff-hours" element={<StaffHours />} />
               <Route path="theme" element={<Theme />} />
               <Route path="admins" element={<Admins />} />
               <Route path="settings" element={<Settings />} />
