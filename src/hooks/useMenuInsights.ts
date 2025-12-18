@@ -9,12 +9,14 @@ interface MenuItemInsight {
   name: string;
   categoryName: string | null;
   categoryId: string | null;
+  orderCount?: number;
 }
 
 interface CategoryInsight {
   id: string;
   name: string;
   orderCount: number;
+  itemCount?: number;
 }
 
 interface MenuInsights {
@@ -22,6 +24,9 @@ interface MenuInsights {
   orderedOnce: MenuItemInsight[];
   notOrderedRecently: MenuItemInsight[];
   lowPerformingCategories: CategoryInsight[];
+  bestSellers: MenuItemInsight[];
+  leastOrdered: MenuItemInsight[];
+  topCategories: CategoryInsight[];
 }
 
 export function useMenuInsights() {
@@ -31,6 +36,9 @@ export function useMenuInsights() {
     orderedOnce: [],
     notOrderedRecently: [],
     lowPerformingCategories: [],
+    bestSellers: [],
+    leastOrdered: [],
+    topCategories: [],
   });
   const [loading, setLoading] = useState(true);
   const [daysThreshold, setDaysThreshold] = useState<DaysThreshold>(14);
@@ -61,6 +69,7 @@ export function useMenuInsights() {
         .from('order_items')
         .select(`
           menu_item_id,
+          quantity,
           orders (
             created_at,
             restaurant_id
@@ -75,14 +84,15 @@ export function useMenuInsights() {
         (item) => item.orders?.restaurant_id === restaurantId
       ) || [];
 
-      // Count orders per menu item
-      const orderCounts = new Map<string, { count: number; lastOrdered: Date | null }>();
+      // Count orders per menu item (including quantity)
+      const orderCounts = new Map<string, { count: number; totalQuantity: number; lastOrdered: Date | null }>();
       
       restaurantOrderItems.forEach((item) => {
         if (!item.menu_item_id) return;
         
-        const current = orderCounts.get(item.menu_item_id) || { count: 0, lastOrdered: null };
+        const current = orderCounts.get(item.menu_item_id) || { count: 0, totalQuantity: 0, lastOrdered: null };
         current.count += 1;
+        current.totalQuantity += item.quantity || 1;
         
         const orderDate = item.orders?.created_at ? new Date(item.orders.created_at) : null;
         if (orderDate && (!current.lastOrdered || orderDate > current.lastOrdered)) {
@@ -98,6 +108,7 @@ export function useMenuInsights() {
       const neverOrdered: MenuItemInsight[] = [];
       const orderedOnce: MenuItemInsight[] = [];
       const notOrderedRecently: MenuItemInsight[] = [];
+      const allItemsWithOrders: MenuItemInsight[] = [];
 
       menuItems?.forEach((item) => {
         const stats = orderCounts.get(item.id);
@@ -108,34 +119,62 @@ export function useMenuInsights() {
           name: item.name,
           categoryName: category?.name || null,
           categoryId: category?.id || null,
+          orderCount: stats?.totalQuantity || 0,
         };
 
         if (!stats || stats.count === 0) {
           neverOrdered.push(insight);
         } else if (stats.count === 1) {
           orderedOnce.push(insight);
-        } else if (stats.lastOrdered && stats.lastOrdered < thresholdDate) {
-          notOrderedRecently.push(insight);
+          allItemsWithOrders.push(insight);
+        } else {
+          if (stats.lastOrdered && stats.lastOrdered < thresholdDate) {
+            notOrderedRecently.push(insight);
+          }
+          allItemsWithOrders.push(insight);
         }
       });
 
+      // Best sellers - top 5 most ordered items
+      const bestSellers = [...allItemsWithOrders]
+        .sort((a, b) => (b.orderCount || 0) - (a.orderCount || 0))
+        .slice(0, 5);
+
+      // Least ordered - bottom 5 items that have been ordered at least once
+      const leastOrdered = [...allItemsWithOrders]
+        .filter(item => (item.orderCount || 0) > 0)
+        .sort((a, b) => (a.orderCount || 0) - (b.orderCount || 0))
+        .slice(0, 5);
+
       // Calculate category performance
-      const categoryCounts = new Map<string, { name: string; count: number }>();
+      const categoryCounts = new Map<string, { name: string; count: number; itemCount: number }>();
       
       menuItems?.forEach((item) => {
         const category = item.menu_categories as { id: string; name: string } | null;
         if (!category) return;
         
         const itemStats = orderCounts.get(item.id);
-        const itemOrderCount = itemStats?.count || 0;
+        const itemOrderCount = itemStats?.totalQuantity || 0;
         
-        const current = categoryCounts.get(category.id) || { name: category.name, count: 0 };
+        const current = categoryCounts.get(category.id) || { name: category.name, count: 0, itemCount: 0 };
         current.count += itemOrderCount;
+        current.itemCount += 1;
         categoryCounts.set(category.id, current);
       });
 
-      // Find low-performing categories (below 50% of average)
+      // Top performing categories
       const categoryArray = Array.from(categoryCounts.entries());
+      const topCategories: CategoryInsight[] = categoryArray
+        .map(([id, data]) => ({
+          id,
+          name: data.name,
+          orderCount: data.count,
+          itemCount: data.itemCount,
+        }))
+        .sort((a, b) => b.orderCount - a.orderCount)
+        .slice(0, 5);
+
+      // Find low-performing categories (below 50% of average)
       const totalCategoryOrders = categoryArray.reduce((sum, [, data]) => sum + data.count, 0);
       const averageOrders = categoryArray.length > 0 ? totalCategoryOrders / categoryArray.length : 0;
       const threshold = averageOrders * 0.5;
@@ -146,6 +185,7 @@ export function useMenuInsights() {
           id,
           name: data.name,
           orderCount: data.count,
+          itemCount: data.itemCount,
         }))
         .sort((a, b) => a.orderCount - b.orderCount);
 
@@ -154,6 +194,9 @@ export function useMenuInsights() {
         orderedOnce,
         notOrderedRecently,
         lowPerformingCategories,
+        bestSellers,
+        leastOrdered,
+        topCategories,
       });
     } catch (error) {
       console.error('Error loading menu insights:', error);
