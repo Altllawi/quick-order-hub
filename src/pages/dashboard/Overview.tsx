@@ -19,6 +19,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts';
+import { MenuInsightsPanel } from '@/components/dashboard/MenuInsightsPanel';
 
 export default function Overview() {
   const {
@@ -222,6 +223,9 @@ export default function Overview() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Menu Insights Panel */}
+      <MenuInsightsPanel />
     </div>
   );
 }
