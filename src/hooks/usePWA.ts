@@ -124,7 +124,10 @@ export function usePWA() {
         .limit(1)
         .maybeSingle();
 
-      if (orderError) throw orderError;
+      if (orderError) {
+        console.error('Error fetching active order:', orderError);
+        return;
+      }
 
       if (order) {
         setActiveOrder(order);
@@ -133,22 +136,33 @@ export function usePWA() {
           .select('*')
           .eq('order_id', order.id);
 
-        if (itemsError) throw itemsError;
+        if (itemsError) {
+          console.error('Error fetching order items:', itemsError);
+          return;
+        }
+        
         setActiveOrderItems(items || []);
         
-        const cartItems: CartItem[] = (items || []).map(item => ({
-          menuItemId: item.menu_item_id || '',
-          name: item.name_at_order,
-          price: Number(item.price_at_order),
-          quantity: item.quantity,
-          notes: item.notes || '',
-        }));
-        setCart(cartItems);
+        // Only load cart from order if cart is empty (don't overwrite local changes)
+        if (cart.length === 0 && items && items.length > 0) {
+          const cartItems: CartItem[] = items.map(item => ({
+            menuItemId: item.menu_item_id || '',
+            name: item.name_at_order,
+            price: Number(item.price_at_order),
+            quantity: item.quantity,
+            notes: item.notes || '',
+          }));
+          setCart(cartItems);
+        }
+      } else {
+        // No active order - clear active order state but keep cart
+        setActiveOrder(null);
+        setActiveOrderItems([]);
       }
     } catch (error) {
       console.error('Error loading active order:', error);
     }
-  }, [restaurantId, tableId]);
+  }, [restaurantId, tableId, cart.length]);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -178,19 +192,37 @@ export function usePWA() {
       setFavicon(rest.logo_url);
 
       if (tableId) {
-        const { data: tbl, error: tblError } = await supabase
+        // Try to find table by id first, then by table_uuid (for legacy QR codes)
+        let tbl = null;
+        
+        const { data: tblById, error: tblError } = await supabase
           .from('tables')
           .select('*')
           .eq('id', tableId)
           .maybeSingle();
 
-        if (tblError) throw tblError;
+        if (tblError) {
+          console.error('Error fetching table by id:', tblError);
+        }
+        
+        if (tblById) {
+          tbl = tblById;
+        } else {
+          // Try by table_uuid as fallback
+          const { data: tblByUuid } = await supabase
+            .from('tables')
+            .select('*')
+            .eq('table_uuid', tableId)
+            .maybeSingle();
+          tbl = tblByUuid;
+        }
         
         if (tbl && tbl.restaurant_id === restaurantId) {
           setTable(tbl);
           await loadActiveOrder();
         } else {
           setTable(null);
+          console.warn('Table not found or does not belong to this restaurant');
         }
       }
 
@@ -317,28 +349,49 @@ export function usePWA() {
   }, [cart]);
 
   const handlePlaceOrder = useCallback(async () => {
-    if (!canOrder || cart.length === 0) return;
+    if (!canOrder || cart.length === 0) {
+      toast.error('Cannot place order. Please scan the QR code on your table.');
+      return;
+    }
+
+    // Validate all cart items have valid menu item IDs
+    const invalidItems = cart.filter(item => !item.menuItemId);
+    if (invalidItems.length > 0) {
+      toast.error('Some items in your cart are invalid. Please remove them and try again.');
+      return;
+    }
 
     setSubmitting(true);
     try {
       const total = getCartTotal();
 
       if (activeOrder && activeOrder.status === 'pending') {
+        // Update existing order
         const { error: updateError } = await supabase
           .from('orders')
-          .update({ total_amount: total })
+          .update({ total_amount: total, updated_at: new Date().toISOString() })
           .eq('id', activeOrder.id);
 
-        if (updateError) throw updateError;
+        if (updateError) {
+          console.error('Order update error:', updateError);
+          throw new Error('Failed to update order');
+        }
 
-        await supabase
+        // Delete existing items
+        const { error: deleteError } = await supabase
           .from('order_items')
           .delete()
           .eq('order_id', activeOrder.id);
 
+        if (deleteError) {
+          console.error('Delete items error:', deleteError);
+          throw new Error('Failed to update order items');
+        }
+
+        // Insert new items
         const orderItems = cart.map(item => ({
           order_id: activeOrder.id,
-          menu_item_id: item.menuItemId || null,
+          menu_item_id: item.menuItemId,
           name_at_order: item.name,
           price_at_order: item.price,
           quantity: item.quantity,
@@ -349,11 +402,15 @@ export function usePWA() {
           .from('order_items')
           .insert(orderItems);
 
-        if (itemsError) throw itemsError;
+        if (itemsError) {
+          console.error('Insert items error:', itemsError);
+          throw new Error('Failed to add order items');
+        }
 
-        toast.success('Order updated!');
+        toast.success('Order updated successfully!');
         await loadActiveOrder();
       } else {
+        // Create new order
         const { data: order, error: orderError } = await supabase
           .from('orders')
           .insert({
@@ -365,11 +422,14 @@ export function usePWA() {
           .select()
           .single();
 
-        if (orderError) throw orderError;
+        if (orderError) {
+          console.error('Create order error:', orderError);
+          throw new Error('Failed to create order');
+        }
 
         const orderItems = cart.map(item => ({
           order_id: order.id,
-          menu_item_id: item.menuItemId || null,
+          menu_item_id: item.menuItemId,
           name_at_order: item.name,
           price_at_order: item.price,
           quantity: item.quantity,
@@ -380,21 +440,29 @@ export function usePWA() {
           .from('order_items')
           .insert(orderItems);
 
-        if (itemsError) throw itemsError;
+        if (itemsError) {
+          console.error('Insert items error:', itemsError);
+          // Try to clean up the order if items failed
+          await supabase.from('orders').delete().eq('id', order.id);
+          throw new Error('Failed to add order items');
+        }
 
         toast.success('Order placed successfully!');
         setActiveOrder(order);
         setActiveOrderItems(orderItems.map((item, i) => ({ ...item, id: `temp-${i}` })));
+        
+        // Clear localStorage cart after successful order
+        localStorage.removeItem(cartKey);
       }
 
       setShowCart(false);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error placing order:', error);
-      toast.error('Failed to place order');
+      toast.error(error.message || 'Failed to place order. Please try again.');
     } finally {
       setSubmitting(false);
     }
-  }, [canOrder, cart, activeOrder, restaurantId, tableId, getCartTotal, loadActiveOrder]);
+  }, [canOrder, cart, activeOrder, restaurantId, tableId, getCartTotal, loadActiveOrder, cartKey]);
 
   // Group items by category
   const groupedItems = categories.map(cat => ({
