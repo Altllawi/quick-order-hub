@@ -2,7 +2,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
-import { Plus, Minus, ShoppingCart, Trash2, AlertCircle, ImageOff } from 'lucide-react';
+import { Plus, Minus, ShoppingCart, Trash2, AlertCircle, ImageOff, CheckCircle, Clock, RefreshCw } from 'lucide-react';
 import { usePWA } from '@/hooks/usePWA';
 
 const DEFAULT_FOOD_PLACEHOLDER = 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=200&h=200&fit=crop&auto=format';
@@ -57,6 +57,40 @@ export default function PWA() {
     );
   }
 
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'pending':
+        return <Clock className="h-5 w-5" />;
+      case 'accepted':
+      case 'preparing':
+        return <RefreshCw className="h-5 w-5 animate-spin" />;
+      case 'ready':
+      case 'served':
+        return <CheckCircle className="h-5 w-5" />;
+      default:
+        return <Clock className="h-5 w-5" />;
+    }
+  };
+
+  const getStatusMessage = (status: string) => {
+    switch (status) {
+      case 'pending':
+        return 'Your order has been received';
+      case 'accepted':
+        return 'Your order has been accepted';
+      case 'preparing':
+        return 'Your order is being prepared';
+      case 'ready':
+        return 'Your order is ready for pickup';
+      case 'served':
+        return 'Your order has been served';
+      case 'cancelled':
+        return 'Your order has been cancelled';
+      default:
+        return 'Order status: ' + status;
+    }
+  };
+
   return (
     <div 
       className="min-h-screen pb-24 relative"
@@ -106,16 +140,57 @@ export default function PWA() {
         )}
 
         {/* Order status banner */}
-        {isOrderLocked && activeOrder && (
+        {activeOrder && (
           <div className="max-w-2xl mx-auto p-4">
-            <Card className="bg-blue-50/95 border-blue-200 backdrop-blur-sm">
+            <Card className={`backdrop-blur-sm ${
+              activeOrder.status === 'cancelled' 
+                ? 'bg-red-50/95 border-red-200' 
+                : activeOrder.status === 'ready' || activeOrder.status === 'served'
+                  ? 'bg-green-50/95 border-green-200'
+                  : 'bg-blue-50/95 border-blue-200'
+            }`}>
               <CardContent className="pt-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium text-blue-800">Your order is being prepared</p>
-                    <p className="text-sm text-blue-600">Status: {activeOrder.status}</p>
+                <div className="flex items-center gap-3">
+                  <div className={`${
+                    activeOrder.status === 'cancelled' 
+                      ? 'text-red-600' 
+                      : activeOrder.status === 'ready' || activeOrder.status === 'served'
+                        ? 'text-green-600'
+                        : 'text-blue-600'
+                  }`}>
+                    {getStatusIcon(activeOrder.status)}
                   </div>
-                  <Badge className="bg-blue-100 text-blue-800">{activeOrder.status}</Badge>
+                  <div className="flex-1">
+                    <p className={`font-medium ${
+                      activeOrder.status === 'cancelled' 
+                        ? 'text-red-800' 
+                        : activeOrder.status === 'ready' || activeOrder.status === 'served'
+                          ? 'text-green-800'
+                          : 'text-blue-800'
+                    }`}>
+                      {getStatusMessage(activeOrder.status)}
+                    </p>
+                    <p className={`text-sm ${
+                      activeOrder.status === 'cancelled' 
+                        ? 'text-red-600' 
+                        : activeOrder.status === 'ready' || activeOrder.status === 'served'
+                          ? 'text-green-600'
+                          : 'text-blue-600'
+                    }`}>
+                      Total: ${Number(activeOrder.total_amount).toFixed(2)}
+                    </p>
+                  </div>
+                  <Badge className={`${
+                    activeOrder.status === 'cancelled' 
+                      ? 'bg-red-100 text-red-800' 
+                      : activeOrder.status === 'ready' || activeOrder.status === 'served'
+                        ? 'bg-green-100 text-green-800'
+                        : activeOrder.status === 'pending'
+                          ? 'bg-yellow-100 text-yellow-800'
+                          : 'bg-blue-100 text-blue-800'
+                  }`}>
+                    {activeOrder.status}
+                  </Badge>
                 </div>
               </CardContent>
             </Card>
