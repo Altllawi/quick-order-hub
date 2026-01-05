@@ -114,12 +114,13 @@ export function usePWA() {
     if (!restaurantId || !tableId) return;
 
     try {
+      // Fetch any recent non-completed order (pending, accepted, preparing, ready)
       const { data: order, error: orderError } = await supabase
         .from('orders')
         .select('*')
         .eq('restaurant_id', restaurantId)
         .eq('table_id', tableId)
-        .eq('status', 'pending')
+        .in('status', ['pending', 'accepted', 'preparing', 'ready'])
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle();
@@ -143,8 +144,8 @@ export function usePWA() {
         
         setActiveOrderItems(items || []);
         
-        // Only load cart from order if cart is empty (don't overwrite local changes)
-        if (cart.length === 0 && items && items.length > 0) {
+        // Only load cart from order if cart is empty and order is pending
+        if (cart.length === 0 && items && items.length > 0 && order.status === 'pending') {
           const cartItems: CartItem[] = items.map(item => ({
             menuItemId: item.menu_item_id || '',
             name: item.name_at_order,
