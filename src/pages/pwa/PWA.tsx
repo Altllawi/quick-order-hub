@@ -75,21 +75,24 @@ export default function PWA() {
   const getStatusMessage = (status: string) => {
     switch (status) {
       case 'pending':
-        return 'Your order has been received';
+        return 'Your order has been received and is waiting for confirmation';
       case 'accepted':
-        return 'Your order has been accepted';
+        return 'Your order has been accepted by the kitchen';
       case 'preparing':
         return 'Your order is being prepared';
       case 'ready':
-        return 'Your order is ready for pickup';
+        return 'Your order is ready! A server will bring it to you soon';
       case 'served':
-        return 'Your order has been served';
+        return 'Your order has been served. Enjoy your meal!';
       case 'cancelled':
         return 'Your order has been cancelled';
       default:
         return 'Order status: ' + status;
     }
   };
+
+  // Determine if customer can still modify the order
+  const canModifyOrder = !activeOrder || activeOrder.status === 'pending';
 
   return (
     <div 
@@ -235,7 +238,7 @@ export default function PWA() {
                               ${Number(item.price).toFixed(2)}
                             </p>
                           </div>
-                          {canOrder && !isOrderLocked && (
+                          {canOrder && canModifyOrder && (
                             <Button
                               size="sm"
                               className="mt-3"
@@ -290,7 +293,7 @@ export default function PWA() {
                             ${Number(item.price).toFixed(2)}
                           </p>
                         </div>
-                        {canOrder && !isOrderLocked && (
+                        {canOrder && canModifyOrder && (
                           <Button
                             size="sm"
                             className="mt-3"
@@ -319,7 +322,7 @@ export default function PWA() {
         </div>
 
         {/* Cart Button (Fixed) */}
-        {canOrder && !isOrderLocked && cart.length > 0 && (
+        {canOrder && canModifyOrder && cart.length > 0 && (
           <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t shadow-lg z-30">
             <div className="max-w-2xl mx-auto">
               <Button
