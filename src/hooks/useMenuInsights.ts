@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useParams } from 'react-router-dom';
+import { useOutletContext } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 
 export type DaysThreshold = 7 | 14 | 30;
@@ -29,8 +29,18 @@ interface MenuInsights {
   topCategories: CategoryInsight[];
 }
 
+interface RestaurantContext {
+  restaurant: {
+    id: string;
+    name: string;
+    slug: string;
+  } | null;
+}
+
 export function useMenuInsights() {
-  const { restaurantId } = useParams<{ restaurantId: string }>();
+  const context = useOutletContext<RestaurantContext>();
+  const restaurantId = context?.restaurant?.id;
+  
   const [insights, setInsights] = useState<MenuInsights>({
     neverOrdered: [],
     orderedOnce: [],

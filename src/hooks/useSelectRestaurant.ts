@@ -6,6 +6,7 @@ import { supabase } from '@/integrations/supabase/client';
 export interface Restaurant {
   id: string;
   name: string;
+  slug: string;
   logo_url: string | null;
 }
 
@@ -29,7 +30,7 @@ export function useSelectRestaurant() {
       if (restaurantIds.length > 0) {
         const { data, error } = await supabase
           .from('restaurants')
-          .select('id, name, logo_url')
+          .select('id, name, slug, logo_url')
           .in('id', restaurantIds);
 
         if (error) throw error;
@@ -37,7 +38,7 @@ export function useSelectRestaurant() {
 
         // Auto-redirect if user has exactly one restaurant and is not super admin
         if (data && data.length === 1 && !isSuperAdmin) {
-          navigate(`/dashboard/${data[0].id}`);
+          navigate(`/${data[0].slug}/dashboard`);
           return;
         }
       } else {
@@ -61,8 +62,8 @@ export function useSelectRestaurant() {
     }
   }, [user, authLoading, navigate, loadRestaurants]);
 
-  const selectRestaurant = useCallback((restaurantId: string) => {
-    navigate(`/dashboard/${restaurantId}`);
+  const selectRestaurant = useCallback((slug: string) => {
+    navigate(`/${slug}/dashboard`);
   }, [navigate]);
 
   const goToSuperAdmin = useCallback(() => {

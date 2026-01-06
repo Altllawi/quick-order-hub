@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { useParams } from 'react-router-dom';
+import { useOutletContext } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -26,6 +26,14 @@ export interface MenuFormData {
   image_url: string;
 }
 
+interface RestaurantContext {
+  restaurant: {
+    id: string;
+    name: string;
+    slug: string;
+  } | null;
+}
+
 const emptyFormData: MenuFormData = {
   name: '',
   description: '',
@@ -35,7 +43,9 @@ const emptyFormData: MenuFormData = {
 };
 
 export function useMenu() {
-  const { restaurantId } = useParams();
+  const context = useOutletContext<RestaurantContext>();
+  const restaurantId = context?.restaurant?.id;
+  
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
@@ -47,6 +57,8 @@ export function useMenu() {
   const [uploadingImage, setUploadingImage] = useState(false);
 
   const loadCategories = useCallback(async () => {
+    if (!restaurantId) return;
+    
     try {
       const { data, error } = await supabase
         .from('menu_categories')
@@ -62,6 +74,8 @@ export function useMenu() {
   }, [restaurantId]);
 
   const loadMenuItems = useCallback(async () => {
+    if (!restaurantId) return;
+    
     try {
       const { data, error } = await supabase
         .from('menu_items')
@@ -95,6 +109,8 @@ export function useMenu() {
 
   const handleSubmitCategory = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!restaurantId) return;
+    
     try {
       const { error } = await supabase
         .from('menu_categories')
@@ -118,6 +134,8 @@ export function useMenu() {
   }, [restaurantId, categoryName, categories.length, loadCategories]);
 
   const handleImageUpload = useCallback(async (file: File, itemId?: string): Promise<string | null> => {
+    if (!restaurantId) return null;
+    
     if (!file.type.startsWith('image/')) {
       toast.error('Please upload an image file');
       return null;
@@ -151,6 +169,8 @@ export function useMenu() {
 
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!restaurantId) return;
+    
     try {
       if (editingItem) {
         const { error } = await supabase

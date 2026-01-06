@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useOutletContext } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -9,8 +9,21 @@ export interface TableData {
   table_uuid: string;
 }
 
+interface RestaurantContext {
+  restaurant: {
+    id: string;
+    name: string;
+    slug: string;
+  } | null;
+}
+
 export function useTables() {
-  const { restaurantId } = useParams();
+  const { slug } = useParams();
+  const context = useOutletContext<RestaurantContext>();
+  const restaurant = context?.restaurant;
+  const restaurantId = restaurant?.id;
+  const restaurantSlug = restaurant?.slug || slug;
+  
   const [tables, setTables] = useState<TableData[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -19,6 +32,8 @@ export function useTables() {
   const [tableName, setTableName] = useState('');
 
   const loadTables = useCallback(async () => {
+    if (!restaurantId) return;
+    
     try {
       const { data, error } = await supabase
         .from('tables')
@@ -43,6 +58,8 @@ export function useTables() {
 
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!restaurantId) return;
+    
     try {
       const { error } = await supabase
         .from('tables')
@@ -84,9 +101,10 @@ export function useTables() {
     setQrDialogOpen(true);
   }, []);
 
+  // Generate QR URL using restaurant slug and table id
   const getQRUrl = useCallback((table: TableData) => {
-    return `${window.location.origin}/pwa/${restaurantId}/${table.id}`;
-  }, [restaurantId]);
+    return `${window.location.origin}/${restaurantSlug}/${table.id}`;
+  }, [restaurantSlug]);
 
   const downloadQR = useCallback(() => {
     if (!selectedTable) return;

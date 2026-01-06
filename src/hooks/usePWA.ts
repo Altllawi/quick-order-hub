@@ -7,6 +7,7 @@ import { applyRestaurantTheme, resetRestaurantTheme, setFavicon, resetFavicon } 
 export interface Restaurant {
   id: string;
   name: string;
+  slug: string;
   logo_url: string | null;
   background_url: string | null;
   primary_color: string | null;
@@ -62,7 +63,7 @@ const CART_KEY_PREFIX = 'pwa_cart_';
 const DEFAULT_BACKGROUND = '/default-background.jpg';
 
 export function usePWA() {
-  const { restaurantId, tableId } = useParams();
+  const { slug, tableId } = useParams();
   const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
   const [table, setTable] = useState<TableData | null>(null);
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
@@ -74,6 +75,8 @@ export function usePWA() {
   const [showCart, setShowCart] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
+  // Use restaurant ID for cart key once we have it
+  const restaurantId = restaurant?.id;
   const canOrder = Boolean(restaurantId && tableId && table);
   const cartKey = `${CART_KEY_PREFIX}${restaurantId}_${tableId}`;
   const isOrderLocked = activeOrder && activeOrder.status !== 'pending';
@@ -81,7 +84,7 @@ export function usePWA() {
 
   // Load cart from localStorage
   const loadCart = useCallback(() => {
-    if (!canOrder) return;
+    if (!canOrder || !restaurantId) return;
     try {
       const saved = localStorage.getItem(cartKey);
       if (saved) {
@@ -90,25 +93,25 @@ export function usePWA() {
     } catch (e) {
       console.error('Error loading cart:', e);
     }
-  }, [cartKey, canOrder]);
+  }, [cartKey, canOrder, restaurantId]);
 
   // Save cart to localStorage
   const saveCart = useCallback((items: CartItem[]) => {
-    if (!canOrder) return;
+    if (!canOrder || !restaurantId) return;
     try {
       localStorage.setItem(cartKey, JSON.stringify(items));
     } catch (e) {
       console.error('Error saving cart:', e);
     }
-  }, [cartKey, canOrder]);
+  }, [cartKey, canOrder, restaurantId]);
 
   // Clear cart
   const clearCart = useCallback(() => {
     setCart([]);
-    if (canOrder) {
+    if (canOrder && restaurantId) {
       localStorage.removeItem(cartKey);
     }
-  }, [cartKey, canOrder]);
+  }, [cartKey, canOrder, restaurantId]);
 
   const loadActiveOrder = useCallback(async () => {
     if (!restaurantId || !tableId) return;
@@ -166,12 +169,18 @@ export function usePWA() {
   }, [restaurantId, tableId, cart.length]);
 
   const loadData = useCallback(async () => {
+    if (!slug) {
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     try {
+      // Lookup restaurant by slug
       const { data: rest, error: restError } = await supabase
         .from('restaurants')
         .select('*')
-        .eq('id', restaurantId)
+        .eq('slug', slug)
         .maybeSingle();
 
       if (restError) throw restError;
@@ -218,9 +227,8 @@ export function usePWA() {
           tbl = tblByUuid;
         }
         
-        if (tbl && tbl.restaurant_id === restaurantId) {
+        if (tbl && tbl.restaurant_id === rest.id) {
           setTable(tbl);
-          await loadActiveOrder();
         } else {
           setTable(null);
           console.warn('Table not found or does not belong to this restaurant');
@@ -230,7 +238,7 @@ export function usePWA() {
       const { data: cats, error: catsError } = await supabase
         .from('menu_categories')
         .select('*')
-        .eq('restaurant_id', restaurantId)
+        .eq('restaurant_id', rest.id)
         .order('position');
 
       if (catsError) throw catsError;
@@ -239,7 +247,7 @@ export function usePWA() {
       const { data: items, error: itemsError } = await supabase
         .from('menu_items')
         .select('*')
-        .eq('restaurant_id', restaurantId)
+        .eq('restaurant_id', rest.id)
         .eq('is_available', true)
         .order('position');
 
@@ -251,21 +259,36 @@ export function usePWA() {
     } finally {
       setLoading(false);
     }
+  }, [slug, tableId]);
+
+  // Load active order after restaurant is loaded
+  useEffect(() => {
+    if (restaurantId && tableId) {
+      loadActiveOrder();
+    }
   }, [restaurantId, tableId, loadActiveOrder]);
 
   useEffect(() => {
     loadData();
-    loadCart();
 
     return () => {
       resetRestaurantTheme();
       resetFavicon();
     };
-  }, [restaurantId, tableId]);
+  }, [slug, tableId]);
+
+  // Load cart when restaurant is available
+  useEffect(() => {
+    if (restaurantId) {
+      loadCart();
+    }
+  }, [restaurantId, loadCart]);
 
   useEffect(() => {
-    saveCart(cart);
-  }, [cart, saveCart]);
+    if (restaurantId) {
+      saveCart(cart);
+    }
+  }, [cart, saveCart, restaurantId]);
 
   // Subscribe to order updates
   useEffect(() => {
@@ -350,7 +373,7 @@ export function usePWA() {
   }, [cart]);
 
   const handlePlaceOrder = useCallback(async () => {
-    if (!canOrder || cart.length === 0) {
+    if (!canOrder || !restaurantId || cart.length === 0) {
       toast.error('Cannot place order. Please scan the QR code on your table.');
       return;
     }

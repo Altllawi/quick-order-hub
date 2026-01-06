@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Outlet, useParams, Link, useLocation, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { applyRestaurantTheme, RestaurantTheme, setFavicon, resetFavicon } from '@/services/themeService';
+import { applyRestaurantTheme, setFavicon, resetFavicon } from '@/services/themeService';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import {
@@ -21,6 +21,7 @@ import {
 interface Restaurant {
   id: string;
   name: string;
+  slug: string;
   logo_url: string | null;
   primary_color: string;
   secondary_color: string;
@@ -28,29 +29,29 @@ interface Restaurant {
 }
 
 export default function RestaurantDashboard() {
-  const { restaurantId } = useParams();
+  const { slug } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
-  const { signOut, user } = useAuth();
+  const { signOut } = useAuth();
   const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
   useEffect(() => {
-    if (restaurantId) {
+    if (slug) {
       loadRestaurant();
     }
 
     return () => {
       resetFavicon();
     };
-  }, [restaurantId]);
+  }, [slug]);
 
   const loadRestaurant = async () => {
     try {
       const { data, error } = await supabase
         .from('restaurants')
         .select('*')
-        .eq('id', restaurantId)
+        .eq('slug', slug)
         .single();
 
       if (error) throw error;
@@ -89,7 +90,7 @@ export default function RestaurantDashboard() {
   ];
 
   const isActive = (path: string) => {
-    const fullPath = `/dashboard/${restaurantId}${path ? `/${path}` : ''}`;
+    const fullPath = `/${slug}/dashboard${path ? `/${path}` : ''}`;
     return location.pathname === fullPath;
   };
 
@@ -142,7 +143,7 @@ export default function RestaurantDashboard() {
             return (
               <Link
                 key={item.path}
-                to={`/dashboard/${restaurantId}${item.path ? `/${item.path}` : ''}`}
+                to={`/${slug}/dashboard${item.path ? `/${item.path}` : ''}`}
                 className={`flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors ${
                   active
                     ? 'bg-primary text-primary-foreground'

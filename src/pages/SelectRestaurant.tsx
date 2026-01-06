@@ -50,7 +50,7 @@ export default function SelectRestaurant() {
                   <Card
                     key={restaurant.id}
                     className="cursor-pointer hover:shadow-lg transition-shadow border-2 hover:border-primary"
-                    onClick={() => selectRestaurant(restaurant.id)}
+                    onClick={() => selectRestaurant(restaurant.slug)}
                   >
                     <CardContent className="p-6 flex flex-col items-center text-center">
                       {restaurant.logo_url ? (

@@ -33,11 +33,18 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <Routes>
-            <Route path="/" element={<Navigate to="/login" replace />} />
+            {/* Auth routes */}
             <Route path="/login" element={<Login />} />
             <Route path="/select-restaurant" element={<ProtectedRoute><SelectRestaurant /></ProtectedRoute>} />
             
-            <Route path="/dashboard/:restaurantId" element={<ProtectedRoute><RestaurantDashboard /></ProtectedRoute>}>
+            {/* Super admin routes */}
+            <Route path="/super" element={<ProtectedRoute requireSuperAdmin><SuperDashboard /></ProtectedRoute>}>
+              <Route index element={<Restaurants />} />
+              <Route path="admins" element={<SuperAdmins />} />
+            </Route>
+
+            {/* Restaurant admin dashboard - /:slug/dashboard */}
+            <Route path="/:slug/dashboard" element={<ProtectedRoute><RestaurantDashboard /></ProtectedRoute>}>
               <Route index element={<Overview />} />
               <Route path="orders" element={<Orders />} />
               <Route path="menu" element={<Menu />} />
@@ -49,14 +56,12 @@ const App = () => (
               <Route path="settings" element={<Settings />} />
             </Route>
 
-            <Route path="/super" element={<ProtectedRoute requireSuperAdmin><SuperDashboard /></ProtectedRoute>}>
-              <Route index element={<Restaurants />} />
-              <Route path="admins" element={<SuperAdmins />} />
-            </Route>
-
-            {/* PWA Routes - with and without tableId */}
-            <Route path="/pwa/:restaurantId/:tableId" element={<PWA />} />
-            <Route path="/pwa/:restaurantId" element={<PWA />} />
+            {/* Customer-facing PWA routes - /:slug and /:slug/:tableId */}
+            <Route path="/:slug/:tableId" element={<PWA />} />
+            <Route path="/:slug" element={<PWA />} />
+            
+            {/* Root redirect */}
+            <Route path="/" element={<Navigate to="/login" replace />} />
             
             <Route path="*" element={<NotFound />} />
           </Routes>
