@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { useParams } from 'react-router-dom';
+import { useOutletContext } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -37,10 +37,20 @@ export interface TableData {
   name: string;
 }
 
+interface RestaurantContext {
+  restaurant: {
+    id: string;
+    name: string;
+    slug: string;
+  } | null;
+}
+
 export const STATUS_OPTIONS = ['pending', 'accepted', 'preparing', 'ready', 'served', 'cancelled'];
 
 export function useOrders() {
-  const { restaurantId } = useParams();
+  const context = useOutletContext<RestaurantContext>();
+  const restaurantId = context?.restaurant?.id;
+  
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
@@ -55,6 +65,8 @@ export function useOrders() {
   const [creatingOrder, setCreatingOrder] = useState(false);
 
   const loadOrders = useCallback(async () => {
+    if (!restaurantId) return;
+    
     try {
       const { data, error } = await supabase
         .from('orders')
@@ -81,6 +93,8 @@ export function useOrders() {
   }, [restaurantId]);
 
   const subscribeToOrders = useCallback(() => {
+    if (!restaurantId) return () => {};
+    
     const channel = supabase
       .channel('orders')
       .on(
@@ -111,6 +125,8 @@ export function useOrders() {
   }, [restaurantId, loadOrders, subscribeToOrders]);
 
   const loadMenuAndTables = useCallback(async () => {
+    if (!restaurantId) return;
+    
     try {
       const [menuResult, categoriesResult, tablesResult] = await Promise.all([
         supabase
@@ -218,6 +234,8 @@ export function useOrders() {
       toast.error('Please select a table');
       return;
     }
+
+    if (!restaurantId) return;
 
     setCreatingOrder(true);
     try {

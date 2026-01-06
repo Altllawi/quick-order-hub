@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { useParams } from 'react-router-dom';
+import { useOutletContext } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -11,8 +11,18 @@ export interface Admin {
   email: string;
 }
 
+interface RestaurantContext {
+  restaurant: {
+    id: string;
+    name: string;
+    slug: string;
+  } | null;
+}
+
 export function useAdmins() {
-  const { restaurantId } = useParams();
+  const context = useOutletContext<RestaurantContext>();
+  const restaurantId = context?.restaurant?.id;
+  
   const [admins, setAdmins] = useState<Admin[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -21,6 +31,8 @@ export function useAdmins() {
   const [submitting, setSubmitting] = useState(false);
 
   const loadAdmins = useCallback(async () => {
+    if (!restaurantId) return;
+    
     setLoading(true);
     try {
       const response = await supabase.functions.invoke('manage-admin', {
@@ -52,6 +64,8 @@ export function useAdmins() {
 
   const handleAddAdmin = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!restaurantId) return;
+    
     setSubmitting(true);
 
     try {
@@ -86,6 +100,7 @@ export function useAdmins() {
   }, [email, password, restaurantId, loadAdmins]);
 
   const handleRemoveAdmin = useCallback(async (admin: Admin) => {
+    if (!restaurantId) return;
     if (!confirm(`Remove ${admin.email} from this restaurant?`)) return;
 
     try {

@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { useParams } from 'react-router-dom';
+import { useOutletContext } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { startOfDay, startOfWeek, startOfMonth, endOfDay, format } from 'date-fns';
 
@@ -18,8 +18,18 @@ interface MonthlyData {
   revenue: number;
 }
 
+interface RestaurantContext {
+  restaurant: {
+    id: string;
+    name: string;
+    slug: string;
+  } | null;
+}
+
 export function useOverview() {
-  const { restaurantId } = useParams();
+  const context = useOutletContext<RestaurantContext>();
+  const restaurantId = context?.restaurant?.id;
+  
   const [timeFilter, setTimeFilter] = useState<TimeFilter>('today');
   const [stats, setStats] = useState<OrderStats>({
     totalOrders: 0,

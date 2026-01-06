@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { useParams } from 'react-router-dom';
+import { useOutletContext } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { startOfWeek, endOfWeek, startOfMonth, endOfMonth, format } from 'date-fns';
@@ -28,10 +28,20 @@ interface HoursFormData {
   end_time: string;
 }
 
+interface RestaurantContext {
+  restaurant: {
+    id: string;
+    name: string;
+    slug: string;
+  } | null;
+}
+
 export type DateFilter = 'day' | 'week' | 'month' | 'custom';
 
 export function useStaffHours() {
-  const { restaurantId } = useParams();
+  const context = useOutletContext<RestaurantContext>();
+  const restaurantId = context?.restaurant?.id;
+  
   const [staffList, setStaffList] = useState<Staff[]>([]);
   const [hours, setHours] = useState<StaffHour[]>([]);
   const [loading, setLoading] = useState(true);

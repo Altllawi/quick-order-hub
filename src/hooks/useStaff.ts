@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { useParams } from 'react-router-dom';
+import { useOutletContext } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -18,8 +18,18 @@ interface StaffFormData {
   phone: string;
 }
 
+interface RestaurantContext {
+  restaurant: {
+    id: string;
+    name: string;
+    slug: string;
+  } | null;
+}
+
 export function useStaff() {
-  const { restaurantId } = useParams();
+  const context = useOutletContext<RestaurantContext>();
+  const restaurantId = context?.restaurant?.id;
+  
   const [staff, setStaff] = useState<Staff[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);

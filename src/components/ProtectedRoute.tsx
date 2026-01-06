@@ -14,13 +14,13 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   requireSuperAdmin = false,
 }) => {
   const { user, loading, isSuperAdmin } = useAuth();
-  const { restaurantId } = useParams();
+  const { slug } = useParams();
   const [checkingAccess, setCheckingAccess] = useState(false);
   const [hasAccess, setHasAccess] = useState<boolean | null>(null);
 
   useEffect(() => {
     const checkRestaurantAccess = async () => {
-      if (!restaurantId || !user) {
+      if (!slug || !user) {
         setHasAccess(true);
         return;
       }
@@ -33,12 +33,24 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
           return;
         }
 
+        // First get the restaurant ID from slug
+        const { data: restaurant } = await supabase
+          .from('restaurants')
+          .select('id')
+          .eq('slug', slug)
+          .maybeSingle();
+
+        if (!restaurant) {
+          setHasAccess(false);
+          return;
+        }
+
         // Check if user has access to this restaurant
         const { data } = await supabase
           .from('restaurant_users')
           .select('id')
           .eq('user_id', user.id)
-          .eq('restaurant_id', restaurantId)
+          .eq('restaurant_id', restaurant.id)
           .maybeSingle();
 
         setHasAccess(!!data);
@@ -53,7 +65,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     if (!loading && user) {
       checkRestaurantAccess();
     }
-  }, [user, loading, restaurantId, isSuperAdmin]);
+  }, [user, loading, slug, isSuperAdmin]);
 
   if (loading || checkingAccess) {
     return (
@@ -71,7 +83,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     return <Navigate to="/select-restaurant" replace />;
   }
 
-  if (restaurantId && hasAccess === false) {
+  if (slug && hasAccess === false) {
     return <Navigate to="/select-restaurant" replace />;
   }
 
